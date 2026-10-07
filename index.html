@@ -1,1 +1,63 @@
-<!doctype html><html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Studio Joyo Baru 2 - Kasir Percetakan</title></head><body><h1>Studio Joyo Baru 2</h1><p>Kasir Percetakan sedang disiapkan.</p></body></html>
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Studio Joyo Baru 2 - Kasir Percetakan</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="app">
+<aside class="side">
+  <div class="brand">STUDIO JOYO BARU 2<small>Kasir Percetakan</small></div>
+  <div class="nav">
+    <button class="active" data-view="dashboard">🏠 Dashboard</button>
+    <button data-view="kasir">🧾 Kasir</button>
+    <button data-view="pesanan">📋 Pesanan</button>
+    <button data-view="layanan">🖨️ Layanan & Harga</button>
+    <button data-view="laporan">📊 Laporan</button>
+    <button data-view="pengaturan">⚙️ Pengaturan</button>
+  </div>
+</aside>
+<main class="main">
+<div class="top"><div><h1 id="title">Dashboard</h1><div class="muted" id="sub">Ringkasan penjualan hari ini</div></div><button class="btn primary" id="newTx">+ Transaksi Baru</button></div>
+
+<section class="view active" id="v-dashboard">
+<div class="grid g4">
+<div class="card stat"><div class="muted">Omzet Hari Ini</div><div class="n" id="omzet">Rp0</div></div>
+<div class="card stat"><div class="muted">Transaksi Hari Ini</div><div class="n" id="jumlahTx">0</div></div>
+<div class="card stat"><div class="muted">Pesanan Menunggu / Diproses</div><div class="n" id="diproses">0</div></div>
+<div class="card stat"><div class="muted">Piutang</div><div class="n" id="piutang">Rp0</div></div>
+</div>
+<div class="grid g2" style="margin-top:15px">
+<div class="card"><h3>Pesanan Terbaru</h3><div id="recent"></div></div>
+<div class="card"><h3>Layanan Cepat</h3><div class="service-grid" id="quick"></div></div>
+</div>
+</section>
+
+<section class="view" id="v-kasir">
+<div class="grid g2">
+<div class="card"><div class="top" style="margin-bottom:12px"><h2 style="margin:0">Pilih Layanan</h2><input id="findSvc" placeholder="Cari layanan..." style="padding:9px;border:1px solid #ddd;border-radius:9px;width:210px"></div><div class="tabs" id="tabs"></div><div class="service-grid" id="svcGrid"></div></div>
+<div class="card"><h2>Keranjang</h2><div id="cart"></div><div class="summary">
+<div class="row"><span>Subtotal</span><b id="subTotal">Rp0</b></div>
+<div class="row"><label>Diskon</label><input id="disc" type="number" value="0" min="0" style="width:120px;padding:7px;border:1px solid #ddd;border-radius:8px"></div>
+<div class="row"><span>Diskon</span><b id="discount">Rp0</b></div>
+<div class="row" style="font-size:20px;margin-top:7px"><b>Total</b><b id="total">Rp0</b></div>
+<div class="field" style="margin-top:13px"><label>Nama Pelanggan</label><input id="cust" placeholder="Opsional"></div>
+<div class="form2"><div class="field"><label>No. HP</label><input id="phone" placeholder="Opsional"></div><div class="field"><label>Pembayaran</label><select id="pay"><option>Lunas</option><option>DP</option><option>Belum Bayar</option></select></div></div>
+<div class="field"><label>Channel</label><select id="channel"><option>Kasir</option><option>WhatsApp</option><option>Instagram</option></select></div>
+<button class="btn light" id="clear">Kosongkan</button> <button class="btn primary" id="saveTx">Simpan Transaksi</button>
+</div></div>
+</div>
+</section>
+
+<section class="view" id="v-pesanan"><div class="card"><div class="top"><h2>Pesanan Percetakan</h2><div><input id="findOrder" placeholder="Cari..." style="padding:9px;border:1px solid #ddd;border-radius:9px"><select id="filterOrder" style="padding:9px;border:1px solid #ddd;border-radius:9px"><option>Semua</option><option>Menunggu</option><option>Diproses</option><option>Selesai</option><option>Dibatalkan</option></select></div></div><div class="tablewrap"><table class="table"><thead><tr><th>Nota</th><th>Tanggal</th><th>Pelanggan</th><th>Pesanan</th><th>Total</th><th>Bayar</th><th>Status</th><th>Ubah</th></tr></thead><tbody id="orderRows"></tbody></table></div></div></section>
+
+<section class="view" id="v-layanan"><div class="card"><div class="top"><h2>Daftar Layanan & Harga</h2><button class="btn primary" id="addSvc">+ Tambah Layanan</button></div><div class="tablewrap"><table class="table"><thead><tr><th>Kategori</th><th>Layanan</th><th>Satuan</th><th>Harga</th><th>Aksi</th></tr></thead><tbody id="serviceRows"></tbody></table></div></div></section>
+
+<section class="view" id="v-laporan"><div class="card"><div class="top"><h2>Laporan Penjualan</h2><div><input type="date" id="from"><input type="date" id="to"><button class="btn light" onclick="report()">Terapkan</button></div></div><div class="grid g4"><div class="card stat"><div class="muted">Omzet</div><div class="n" id="rSum">Rp0</div></div><div class="card stat"><div class="muted">Transaksi</div><div class="n" id="rCount">0</div></div><div class="card stat"><div class="muted">Rata-rata Nota</div><div class="n" id="rAvg">Rp0</div></div></div><div class="tablewrap" style="margin-top:15px"><table class="table"><thead><tr><th>Tanggal</th><th>Nota</th><th>Pelanggan</th><th>Channel</th><th>Total</th></tr></thead><tbody id="reportRows"></tbody></table></div></div></section>
+
+<section class="view" id="v-pengaturan"><div class="grid g2"><div class="card"><h2>Identitas Toko</h2><div class="field"><label>Nama</label><input id="storeName"></div><div class="field"><label>Subjudul</label><input id="storeSub"></div><div class="field"><label>No. Telepon</label><input id="storePhone"></div><div class="field"><label>Alamat</label><textarea id="storeAddress" rows="3"></textarea></div><div class="field"><label>Jam Operasional</label><input id="storeHours"></div><button class="btn primary" id="saveSet">Simpan</button></div><div class="card"><h2>Data</h2><p class="muted">Data transaksi tersimpan di browser perangkat ini.</p><button class="btn light" id="backup">Backup JSON</button><button class="btn danger" id="reset">Hapus Transaksi</button></div></div></section>
+</main></div>
+<script src="app.js"></script>
+</body></html>
