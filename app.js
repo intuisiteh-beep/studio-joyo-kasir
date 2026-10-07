@@ -1,0 +1,103 @@
+const KEY='sjb2_print_kasir_v1';
+let db=JSON.parse(localStorage.getItem(KEY)||'null')||{
+services:[
+{id:1,cat:'Print',name:'Print A4 Hitam Putih',unit:'lembar',price:1000},
+{id:2,cat:'Print',name:'Print A4 Warna',unit:'lembar',price:1500},
+{id:3,cat:'Print',name:'Print A3 Warna',unit:'lembar',price:3500},
+{id:4,cat:'Fotokopi',name:'Fotokopi A4',unit:'lembar',price:500},
+{id:5,cat:'Foto',name:'Cetak Foto 4R',unit:'foto',price:5000},
+{id:6,cat:'Finishing',name:'Laminating A4',unit:'lembar',price:5000},
+{id:7,cat:'Finishing',name:'Jilid',unit:'pcs',price:10000},
+{id:8,cat:'Finishing',name:'Spiral Besi',unit:'pcs',price:12000},
+{id:9,cat:'Banner',name:'Banner',unit:'m²',price:25000},
+{id:10,cat:'Banner',name:'X-Banner',unit:'pcs',price:75000},
+{id:11,cat:'Cetak Khusus',name:'Poster A3',unit:'pcs',price:15000},
+{id:12,cat:'Cetak Khusus',name:'Kartu Nama',unit:'box',price:30000},
+{id:13,cat:'Cetak Khusus',name:'ID Card',unit:'pcs',price:10000},
+{id:14,cat:'Cetak Khusus',name:'Sertifikat',unit:'pcs',price:5000},
+{id:15,cat:'Souvenir',name:'Cetak Mug',unit:'pcs',price:25000}
+],
+transactions:[],settings:{name:'STUDIO JOYO BARU 2',sub:'PHOTO • PRINTING • COPY CENTER',phone:'',address:'',hours:'07.00 WIB – 22.00 WIB'}
+};
+let cart=[],cat='Semua';
+
+function save(){localStorage.setItem(KEY,JSON.stringify(db))}
+function rp(n){return new Intl.NumberFormat('id-ID',{style:'currency',currency:'IDR',maximumFractionDigits:0}).format(n||0).replace('IDR','Rp')}
+function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function today(){return new Date().toISOString().slice(0,10)}
+function badge(s){return '<span class="badge '+(s==='Selesai'?'done':s==='Diproses'?'proc':'wait')+'">'+s+'</span>'}
+
+function view(id){
+ document.querySelectorAll('.view').forEach(x=>x.classList.remove('active'));
+ document.getElementById(id).classList.add('active');
+ document.querySelectorAll('.nav button').forEach(x=>x.classList.toggle('active',x.dataset.view===id.replace('v-','')));
+ const titles={dashboard:['Dashboard','Ringkasan penjualan hari ini'],kasir:['Kasir','Input transaksi pelanggan'],pesanan:['Pesanan','Status pesanan percetakan'],layanan:['Layanan & Harga','Kelola layanan dan harga'],laporan:['Laporan','Laporan penjualan'],pengaturan:['Pengaturan','Identitas toko dan data']};
+ const t=titles[id.replace('v-','')]||titles.dashboard;document.getElementById('title').textContent=t[0];document.getElementById('sub').textContent=t[1];
+ renderAll();
+}
+document.querySelectorAll('.nav button').forEach(b=>b.onclick=()=>view('v-'+b.dataset.view));
+document.getElementById('newTx').onclick=()=>view('v-kasir');
+
+function renderAll(){dash();kasir();orders();services();report();settings()}
+function dash(){
+ const tx=db.transactions.filter(t=>t.date.slice(0,10)===today());
+ document.getElementById('omzet').textContent=rp(tx.reduce((a,t)=>a+t.total,0));
+ document.getElementById('jumlahTx').textContent=tx.length;
+ document.getElementById('diproses').textContent=db.transactions.filter(t=>t.status==='Menunggu'||t.status==='Diproses').length;
+ document.getElementById('piutang').textContent=rp(db.transactions.filter(t=>t.payment!=='Lunas').reduce((a,t)=>a+t.total,0));
+ document.getElementById('recent').innerHTML=db.transactions.slice().sort((a,b)=>b.date.localeCompare(a.date)).slice(0,6).map(t=>'<div class="row" style="padding:9px 0;border-bottom:1px solid #eee"><span><b>'+esc(t.invoice)+'</b><br><small>'+esc(t.customer||'Umum')+'</small></span><span>'+rp(t.total)+'<br>'+badge(t.status)+'</span></div>').join('')||'<div class="empty">Belum ada transaksi.</div>';
+}
+function cats(){return ['Semua',...new Set(db.services.map(s=>s.cat))]}
+function kasir(){
+ document.getElementById('tabs').innerHTML=cats().map(c=>'<button class="tab '+(c===cat?'active':'')+'" onclick="cat=\''+c.replace(/'/g,"\\'")+'\';kasir()">'+esc(c)+'</button>').join('');
+ const q=(document.getElementById('findSvc').value||'').toLowerCase();
+ const list=db.services.filter(s=>(cat==='Semua'||s.cat===cat)&&(!q||s.name.toLowerCase().includes(q)));
+ document.getElementById('svcGrid').innerHTML=list.map(s=>'<button class="service" onclick="add('+s.id+')"><b>'+esc(s.name)+'</b><small>'+rp(s.price)+' / '+esc(s.unit)+'</small></button>').join('')||'<div class="empty">Tidak ditemukan.</div>';
+ const sub=cart.reduce((a,x)=>a+x.qty*x.price,0),disc=Number(document.getElementById('disc').value||0),total=Math.max(0,sub-disc);
+ document.getElementById('cart').innerHTML=cart.map((x,i)=>'<div class="cart-item"><span><b>'+esc(x.name)+'</b><br><small>'+x.qty+' '+esc(x.unit)+' × '+rp(x.price)+'</small></span><span class="qty"><button onclick="chg('+i+',-1)">−</button> '+x.qty+' <button onclick="chg('+i+',1)">+</button><br><b>'+rp(x.qty*x.price)+'</b></span></div>').join('')||'<div class="empty">Keranjang kosong.</div>';
+ document.getElementById('subTotal').textContent=rp(sub);document.getElementById('discount').textContent=rp(disc);document.getElementById('total').textContent=rp(total);
+}
+document.getElementById('findSvc').oninput=kasir;document.getElementById('disc').oninput=kasir;
+window.add=function(id){const s=db.services.find(x=>x.id===id),x=cart.find(x=>x.id===id);if(x)x.qty++;else cart.push({id:s.id,name:s.name,unit:s.unit,price:s.price,qty:1});kasir()}
+window.chg=function(i,n){cart[i].qty+=n;if(cart[i].qty<1)cart.splice(i,1);kasir()}
+document.getElementById('clear').onclick=()=>{cart=[];document.getElementById('disc').value=0;kasir()};
+
+document.getElementById('saveTx').onclick=()=>{
+ if(!cart.length)return alert('Keranjang masih kosong.');
+ const sub=cart.reduce((a,x)=>a+x.qty*x.price,0),disc=Number(document.getElementById('disc').value||0),total=Math.max(0,sub-disc);
+ const id=Date.now(),invoice='SJB2-'+new Date().toISOString().slice(0,10).replaceAll('-','')+'-'+String(db.transactions.length+1).padStart(4,'0');
+ const t={id,invoice,date:new Date().toISOString(),customer:document.getElementById('cust').value.trim(),phone:document.getElementById('phone').value.trim(),payment:document.getElementById('pay').value,channel:document.getElementById('channel').value,status:'Menunggu',discount:disc,total,items:cart.map(x=>({...x}))};
+ db.transactions.push(t);save();alert('Transaksi '+invoice+' berhasil disimpan.');cart=[];document.getElementById('disc').value=0;document.getElementById('cust').value='';document.getElementById('phone').value='';view('v-pesanan');
+};
+
+function orders(){
+ const q=(document.getElementById('findOrder').value||'').toLowerCase(),f=document.getElementById('filterOrder').value;
+ const rows=db.transactions.slice().sort((a,b)=>b.date.localeCompare(a.date)).filter(t=>(f==='Semua'||t.status===f)&&((t.invoice+' '+t.customer).toLowerCase().includes(q)));
+ document.getElementById('orderRows').innerHTML=rows.map(t=>'<tr><td><b>'+t.invoice+'</b></td><td>'+new Date(t.date).toLocaleDateString('id-ID')+'</td><td>'+esc(t.customer||'Umum')+'</td><td>'+t.items.map(i=>esc(i.name)+' × '+i.qty).join('<br>')+'</td><td>'+rp(t.total)+'</td><td>'+t.payment+'</td><td>'+badge(t.status)+'</td><td><select onchange="setStatus('+t.id+',this.value)"><option '+(t.status==='Menunggu'?'selected':'')+'>Menunggu</option><option '+(t.status==='Diproses'?'selected':'')+'>Diproses</option><option '+(t.status==='Selesai'?'selected':'')+'>Selesai</option><option '+(t.status==='Dibatalkan'?'selected':'')+'>Dibatalkan</option></select></td></tr>').join('')||'<tr><td colspan="8" class="empty">Belum ada pesanan.</td></tr>';
+}
+window.setStatus=(id,s)=>{const t=db.transactions.find(x=>x.id===id);if(t){t.status=s;save();orders();dash()}}
+document.getElementById('findOrder').oninput=orders;document.getElementById('filterOrder').onchange=orders;
+
+function services(){
+ document.getElementById('serviceRows').innerHTML=db.services.map(s=>'<tr><td>'+esc(s.cat)+'</td><td>'+esc(s.name)+'</td><td>'+esc(s.unit)+'</td><td>'+rp(s.price)+'</td><td><button class="btn light" onclick="editSvc('+s.id+')">Edit</button> <button class="btn danger" onclick="delSvc('+s.id+')">Hapus</button></td></tr>').join('');
+}
+window.editSvc=id=>{const s=db.services.find(x=>x.id===id),p=prompt('Harga untuk '+s.name,s.price);if(p!==null&&!isNaN(p)){s.price=Number(p);save();services();kasir()}};
+window.delSvc=id=>{if(confirm('Hapus layanan ini?')){db.services=db.services.filter(s=>s.id!==id);save();services();kasir()}};
+document.getElementById('addSvc').onclick=()=>{const name=prompt('Nama layanan baru');if(!name)return;const price=Number(prompt('Harga',0));const unit=prompt('Satuan','pcs')||'pcs';const c=prompt('Kategori','Lainnya')||'Lainnya';db.services.push({id:Date.now(),cat:c,name,unit,price});save();renderAll()};
+
+function report(){
+ const from=document.getElementById('from').value,to=document.getElementById('to').value;
+ const rows=db.transactions.filter(t=>(!from||t.date.slice(0,10)>=from)&&(!to||t.date.slice(0,10)<=to));
+ const sum=rows.reduce((a,t)=>a+t.total,0);
+ document.getElementById('rSum').textContent=rp(sum);document.getElementById('rCount').textContent=rows.length;
+ document.getElementById('rAvg').textContent=rp(rows.length?sum/rows.length:0);
+ document.getElementById('reportRows').innerHTML=rows.sort((a,b)=>b.date.localeCompare(a.date)).map(t=>'<tr><td>'+new Date(t.date).toLocaleDateString('id-ID')+'</td><td>'+t.invoice+'</td><td>'+esc(t.customer||'Umum')+'</td><td>'+t.channel+'</td><td>'+rp(t.total)+'</td></tr>').join('')||'<tr><td colspan="5" class="empty">Tidak ada data.</td></tr>';
+}
+
+function settings(){
+ document.getElementById('storeName').value=db.settings.name;document.getElementById('storeSub').value=db.settings.sub;document.getElementById('storePhone').value=db.settings.phone;document.getElementById('storeAddress').value=db.settings.address;document.getElementById('storeHours').value=db.settings.hours;
+}
+document.getElementById('saveSet').onclick=()=>{db.settings={name:storeName.value,sub:storeSub.value,phone:storePhone.value,address:storeAddress.value,hours:storeHours.value};save();alert('Pengaturan tersimpan.')};
+document.getElementById('backup').onclick=()=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(db,null,2)],{type:'application/json'}));a.download='backup-studio-joyo.json';a.click()};
+document.getElementById('reset').onclick=()=>{if(confirm('Hapus semua transaksi?')){db.transactions=[];save();renderAll()}};
+view('v-dashboard');
