@@ -66,14 +66,16 @@ document.getElementById('saveTx').onclick=()=>{
  if(!cart.length)return alert('Keranjang masih kosong.');
  const sub=cart.reduce((a,x)=>a+x.qty*x.price,0),disc=Number(document.getElementById('disc').value||0),total=Math.max(0,sub-disc);
  const id=Date.now(),invoice='SJB2-'+new Date().toISOString().slice(0,10).replaceAll('-','')+'-'+String(db.transactions.length+1).padStart(4,'0');
- const t={id,invoice,date:new Date().toISOString(),customer:document.getElementById('cust').value.trim(),phone:document.getElementById('phone').value.trim(),payment:document.getElementById('pay').value,channel:document.getElementById('channel').value,status:'Menunggu',discount:disc,total,items:cart.map(x=>({...x}))};
- db.transactions.push(t);save();alert('Transaksi '+invoice+' berhasil disimpan.');cart=[];document.getElementById('disc').value=0;document.getElementById('cust').value='';document.getElementById('phone').value='';view('v-pesanan');
+ const dueDate=document.getElementById('dueDate').value;
+ if(!dueDate)return alert('Silakan tentukan tanggal dan jam selesai / pengambilan.');
+ const t={id,invoice,date:new Date().toISOString(),dueDate,customer:document.getElementById('cust').value.trim(),phone:document.getElementById('phone').value.trim(),payment:document.getElementById('pay').value,channel:document.getElementById('channel').value,status:'Menunggu',discount:disc,total,items:cart.map(x=>({...x}))};
+ db.transactions.push(t);save();alert('Transaksi '+invoice+' berhasil disimpan.');cart=[];document.getElementById('disc').value=0;document.getElementById('cust').value='';document.getElementById('phone').value='';document.getElementById('dueDate').value='';view('v-pesanan');
 };
 
 function orders(){
  const q=(document.getElementById('findOrder').value||'').toLowerCase(),f=document.getElementById('filterOrder').value;
  const rows=db.transactions.slice().sort((a,b)=>b.date.localeCompare(a.date)).filter(t=>(f==='Semua'||t.status===f)&&((t.invoice+' '+t.customer).toLowerCase().includes(q)));
- document.getElementById('orderRows').innerHTML=rows.map(t=>'<tr><td><b>'+t.invoice+'</b></td><td>'+new Date(t.date).toLocaleDateString('id-ID')+'</td><td>'+esc(t.customer||'Umum')+'</td><td>'+t.items.map(i=>esc(i.name)+' × '+i.qty).join('<br>')+'</td><td>'+rp(t.total)+'</td><td>'+t.payment+'</td><td>'+badge(t.status)+'</td><td><select onchange="setStatus('+t.id+',this.value)"><option '+(t.status==='Menunggu'?'selected':'')+'>Menunggu</option><option '+(t.status==='Diproses'?'selected':'')+'>Diproses</option><option '+(t.status==='Selesai'?'selected':'')+'>Selesai</option><option '+(t.status==='Dibatalkan'?'selected':'')+'>Dibatalkan</option></select><br><button class="btn light" style="margin-top:5px" onclick="openReceipt('+t.id+')">🧾 Nota</button></td></tr>').join('')||'<tr><td colspan="8" class="empty">Belum ada pesanan.</td></tr>';
+ document.getElementById('orderRows').innerHTML=rows.map(t=>'<tr><td><b>'+t.invoice+'</b></td><td>'+new Date(t.date).toLocaleDateString('id-ID')+'</td><td>'+esc(t.customer||'Umum')+'</td><td>'+t.items.map(i=>esc(i.name)+' × '+i.qty).join('<br>')+'</td><td><b>'+ (t.dueDate?new Date(t.dueDate).toLocaleString('id-ID',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}):'Belum ditentukan') +'</b></td><td>'+rp(t.total)+'</td><td>'+t.payment+'</td><td>'+badge(t.status)+'</td><td><select onchange="setStatus('+t.id+',this.value)"><option '+(t.status==='Menunggu'?'selected':'')+'>Menunggu</option><option '+(t.status==='Diproses'?'selected':'')+'>Diproses</option><option '+(t.status==='Selesai'?'selected':'')+'>Selesai</option><option '+(t.status==='Dibatalkan'?'selected':'')+'>Dibatalkan</option></select><br><button class="btn light" style="margin-top:5px" onclick="openReceipt('+t.id+')">🧾 Nota</button></td></tr>').join('')||'<tr><td colspan="8" class="empty">Belum ada pesanan.</td></tr>';
 }
 window.setStatus=(id,s)=>{const t=db.transactions.find(x=>x.id===id);if(t){t.status=s;save();orders();dash()}}
 document.getElementById('findOrder').oninput=orders;document.getElementById('filterOrder').onchange=orders;
@@ -110,6 +112,7 @@ function openReceipt(id){
  '<hr><div class="line"><span>Nota</span><b>'+esc(t.invoice)+'</b></div>'+
  '<div class="line"><span>Tanggal</span><span>'+new Date(t.date).toLocaleString('id-ID')+'</span></div>'+
  '<div class="line"><span>Pelanggan</span><span>'+esc(t.customer||'Umum')+'</span></div>'+
+ '<div class="line"><b>SELESAI / DIAMBIL</b><b>'+ (t.dueDate?new Date(t.dueDate).toLocaleString('id-ID',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}):'Belum ditentukan') +'</b></div>'+
  (t.phone?'<div class="line"><span>No. HP</span><span>'+esc(t.phone)+'</span></div>':'')+
  '<hr>'+t.items.map(i=>'<div class="item"><div><b>'+esc(i.name)+'</b></div><div class="line"><span>'+i.qty+' '+esc(i.unit)+' × '+rp(i.price)+'</span><span>'+rp(i.qty*i.price)+'</span></div></div>').join('')+
  '<hr><div class="line"><span>Subtotal</span><b>'+rp(subtotal)+'</b></div>'+
