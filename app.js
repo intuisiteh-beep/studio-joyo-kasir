@@ -17,13 +17,13 @@ services:[
 {id:14,cat:'Cetak Khusus',name:'Sertifikat',unit:'pcs',price:5000},
 {id:15,cat:'Souvenir',name:'Cetak Mug',unit:'pcs',price:25000}
 ],
-transactions:[],settings:{name:'STUDIO JOYO BARU 2',sub:'PHOTO • PRINTING • COPY CENTER',phone:'',address:'',hours:'07.00 WIB – 22.00 WIB'}
+transactions:[],settings:{name:'STUDIO JOYO BARU 2',sub:'PHOTO • PRINTING • COPY CENTER',phone:'0857 4826 5687',address:'Graha Suko Indah No. 1A, Sukolegok, Sukodono, Sidoarjo',hours:'07.00 WIB – 22.00 WIB'}
 };
 let cart=[],cat='Semua',customDraft=null;
 
 function save(){localStorage.setItem(KEY,JSON.stringify(db))}
 // Pastikan layanan banner/spanduk memakai perhitungan luas untuk database lama.
-(function migrate(){const b=db.services.find(x=>x.name==='Banner');if(b)b.unit='m²';if(!db.services.some(x=>x.name==='Spanduk'))db.services.push({id:16,cat:'Banner',name:'Spanduk',unit:'m²',price:25000});save()})();
+(function migrate(){const b=db.services.find(x=>x.name==='Banner');if(b)b.unit='m²';if(!db.services.some(x=>x.name==='Spanduk'))db.services.push({id:16,cat:'Banner',name:'Spanduk',unit:'m²',price:25000});if(!db.settings.phone)db.settings.phone='0857 4826 5687';if(!db.settings.address)db.settings.address='Graha Suko Indah No. 1A, Sukolegok, Sukodono, Sidoarjo';save()})();
 function rp(n){return new Intl.NumberFormat('id-ID',{style:'currency',currency:'IDR',maximumFractionDigits:0}).format(n||0).replace('IDR','Rp')}
 function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function today(){return new Date().toISOString().slice(0,10)}
