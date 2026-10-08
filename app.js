@@ -22,7 +22,7 @@ transactions:[],settings:{name:'STUDIO JOYO BARU 2',sub:'PHOTO • PRINTING • 
 let cart=[],cat='Semua',customDraft=null;
 
 // ==================== SUPABASE ONLINE ====================
-const SUPABASE_URL='https://makwwkvfignunryprxkj.supabase.co';
+const SUPABASE_URL='https://makwvkvfignunryprxkj.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY='sb_publishable_DOhmDG2qDlznNvbGQM024g_J3gb0k7M';
 const supabaseClient=window.supabase.createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY);
 let cloudReady=false, cloudBusy=false, cloudTimer=null;
