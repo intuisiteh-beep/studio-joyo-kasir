@@ -59,5 +59,11 @@
 
 <section class="view" id="v-pengaturan"><div class="grid g2"><div class="card"><h2>Identitas Toko</h2><div class="field"><label>Nama</label><input id="storeName"></div><div class="field"><label>Subjudul</label><input id="storeSub"></div><div class="field"><label>No. Telepon</label><input id="storePhone"></div><div class="field"><label>Alamat</label><textarea id="storeAddress" rows="3"></textarea></div><div class="field"><label>Jam Operasional</label><input id="storeHours"></div><button class="btn primary" id="saveSet">Simpan</button></div><div class="card"><h2>Data</h2><p class="muted">Data transaksi tersimpan di browser perangkat ini.</p><button class="btn light" id="backup">Backup JSON</button><button class="btn danger" id="reset">Hapus Transaksi</button></div></div></section>
 </main></div>
+<div id="receiptModal" class="receipt-modal">
+  <div class="receipt-box">
+    <div class="receipt-actions"><button class="btn light" onclick="closeReceipt()">Tutup</button><button class="btn primary" onclick="printReceipt()">🖨️ Cetak Nota</button></div>
+    <div id="receiptPaper"></div>
+  </div>
+</div>
 <script src="app.js"></script>
 </body></html>
