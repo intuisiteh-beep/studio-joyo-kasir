@@ -118,7 +118,16 @@ document.getElementById('findArchive').oninput=renderArchive;
 function services(){
  document.getElementById('serviceRows').innerHTML=db.services.map(s=>'<tr><td>'+esc(s.cat)+'</td><td>'+esc(s.name)+'</td><td>'+esc(s.unit)+'</td><td>'+rp(s.price)+'</td><td><button class="btn light" onclick="editSvc('+s.id+')">Edit</button> <button class="btn danger" onclick="delSvc('+s.id+')">Hapus</button></td></tr>').join('');
 }
-window.editSvc=id=>{const s=db.services.find(x=>x.id===id),p=prompt('Harga untuk '+s.name,s.price);if(p!==null&&!isNaN(p)){s.price=Number(p);save();services();kasir()}};
+window.editSvc=id=>{
+ const s=db.services.find(x=>x.id===id); if(!s)return;
+ const name=prompt('Nama layanan',s.name); if(name===null)return;
+ const cat=prompt('Kategori',s.cat); if(cat===null)return;
+ const unit=prompt('Satuan (pcs / lembar / box / m²)',s.unit); if(unit===null)return;
+ const p=prompt('Harga',s.price); if(p===null||isNaN(p))return alert('Harga tidak valid.');
+ if(!name.trim()||!cat.trim()||!unit.trim())return alert('Nama, kategori, dan satuan wajib diisi.');
+ s.name=name.trim();s.cat=cat.trim();s.unit=unit.trim();s.price=Number(p);
+ save();services();kasir()
+};
 window.delSvc=id=>{if(confirm('Hapus layanan ini?')){db.services=db.services.filter(s=>s.id!==id);save();services();kasir()}};
 document.getElementById('addSvc').onclick=()=>{const name=prompt('Nama layanan baru');if(!name)return;const price=Number(prompt('Harga',0));const unit=prompt('Satuan','pcs')||'pcs';const c=prompt('Kategori','Lainnya')||'Lainnya';db.services.push({id:Date.now(),cat:c,name,unit,price});save();renderAll()};
 
