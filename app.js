@@ -73,7 +73,7 @@ document.getElementById('saveTx').onclick=()=>{
 function orders(){
  const q=(document.getElementById('findOrder').value||'').toLowerCase(),f=document.getElementById('filterOrder').value;
  const rows=db.transactions.slice().sort((a,b)=>b.date.localeCompare(a.date)).filter(t=>(f==='Semua'||t.status===f)&&((t.invoice+' '+t.customer).toLowerCase().includes(q)));
- document.getElementById('orderRows').innerHTML=rows.map(t=>'<tr><td><b>'+t.invoice+'</b></td><td>'+new Date(t.date).toLocaleDateString('id-ID')+'</td><td>'+esc(t.customer||'Umum')+'</td><td>'+t.items.map(i=>esc(i.name)+' × '+i.qty).join('<br>')+'</td><td>'+rp(t.total)+'</td><td>'+t.payment+'</td><td>'+badge(t.status)+'</td><td><select onchange="setStatus('+t.id+',this.value)"><option '+(t.status==='Menunggu'?'selected':'')+'>Menunggu</option><option '+(t.status==='Diproses'?'selected':'')+'>Diproses</option><option '+(t.status==='Selesai'?'selected':'')+'>Selesai</option><option '+(t.status==='Dibatalkan'?'selected':'')+'>Dibatalkan</option></select></td></tr>').join('')||'<tr><td colspan="8" class="empty">Belum ada pesanan.</td></tr>';
+ document.getElementById('orderRows').innerHTML=rows.map(t=>'<tr><td><b>'+t.invoice+'</b></td><td>'+new Date(t.date).toLocaleDateString('id-ID')+'</td><td>'+esc(t.customer||'Umum')+'</td><td>'+t.items.map(i=>esc(i.name)+' × '+i.qty).join('<br>')+'</td><td>'+rp(t.total)+'</td><td>'+t.payment+'</td><td>'+badge(t.status)+'</td><td><select onchange="setStatus('+t.id+',this.value)"><option '+(t.status==='Menunggu'?'selected':'')+'>Menunggu</option><option '+(t.status==='Diproses'?'selected':'')+'>Diproses</option><option '+(t.status==='Selesai'?'selected':'')+'>Selesai</option><option '+(t.status==='Dibatalkan'?'selected':'')+'>Dibatalkan</option></select><br><button class="btn light" style="margin-top:5px" onclick="openReceipt('+t.id+')">🧾 Nota</button></td></tr>').join('')||'<tr><td colspan="8" class="empty">Belum ada pesanan.</td></tr>';
 }
 window.setStatus=(id,s)=>{const t=db.transactions.find(x=>x.id===id);if(t){t.status=s;save();orders();dash()}}
 document.getElementById('findOrder').oninput=orders;document.getElementById('filterOrder').onchange=orders;
@@ -100,4 +100,29 @@ function settings(){
 document.getElementById('saveSet').onclick=()=>{db.settings={name:storeName.value,sub:storeSub.value,phone:storePhone.value,address:storeAddress.value,hours:storeHours.value};save();alert('Pengaturan tersimpan.')};
 document.getElementById('backup').onclick=()=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(db,null,2)],{type:'application/json'}));a.download='backup-studio-joyo.json';a.click()};
 document.getElementById('reset').onclick=()=>{if(confirm('Hapus semua transaksi?')){db.transactions=[];save();renderAll()}};
+function openReceipt(id){
+ const t=db.transactions.find(x=>x.id===id); if(!t)return;
+ const subtotal=t.items.reduce((a,i)=>a+i.qty*i.price,0);
+ document.getElementById('receiptPaper').innerHTML='<div class="receipt-paper">'+
+ '<h2>'+esc(db.settings.name)+'</h2><div class="center small">'+esc(db.settings.sub)+'</div>'+
+ (db.settings.address?'<div class="center small">'+esc(db.settings.address)+'</div>':'')+
+ (db.settings.phone?'<div class="center small">'+esc(db.settings.phone)+'</div>':'')+
+ '<hr><div class="line"><span>Nota</span><b>'+esc(t.invoice)+'</b></div>'+
+ '<div class="line"><span>Tanggal</span><span>'+new Date(t.date).toLocaleString('id-ID')+'</span></div>'+
+ '<div class="line"><span>Pelanggan</span><span>'+esc(t.customer||'Umum')+'</span></div>'+
+ (t.phone?'<div class="line"><span>No. HP</span><span>'+esc(t.phone)+'</span></div>':'')+
+ '<hr>'+t.items.map(i=>'<div class="item"><div><b>'+esc(i.name)+'</b></div><div class="line"><span>'+i.qty+' '+esc(i.unit)+' × '+rp(i.price)+'</span><span>'+rp(i.qty*i.price)+'</span></div></div>').join('')+
+ '<hr><div class="line"><span>Subtotal</span><b>'+rp(subtotal)+'</b></div>'+
+ '<div class="line"><span>Diskon</span><span>- '+rp(t.discount||0)+'</span></div>'+
+ '<div class="line total"><span>TOTAL</span><span>'+rp(t.total)+'</span></div>'+
+ '<div class="line"><span>Pembayaran</span><span>'+esc(t.payment)+'</span></div>'+
+ '<div class="line"><span>Status</span><span>'+esc(t.status)+'</span></div>'+
+ '<hr><div class="center small">Terima kasih telah menggunakan layanan kami.</div>'+
+ '</div>';
+ document.getElementById('receiptModal').classList.add('show');
+}
+function closeReceipt(){document.getElementById('receiptModal').classList.remove('show')}
+function printReceipt(){window.print()}
+window.openReceipt=openReceipt;window.closeReceipt=closeReceipt;window.printReceipt=printReceipt;
+
 view('v-dashboard');
