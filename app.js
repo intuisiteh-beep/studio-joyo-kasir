@@ -19,7 +19,7 @@ services:[
 ],
 transactions:[],settings:{name:'STUDIO JOYO BARU 2',sub:'PHOTO • PRINTING • COPY CENTER',phone:'',address:'',hours:'07.00 WIB – 22.00 WIB'}
 };
-let cart=[],cat='Semua';
+let cart=[],cat='Semua',customDraft=null;
 
 function save(){localStorage.setItem(KEY,JSON.stringify(db))}
 // Pastikan layanan banner/spanduk memakai perhitungan luas untuk database lama.
@@ -54,15 +54,18 @@ function kasir(){
  document.getElementById('tabs').innerHTML=cats().map(c=>'<button class="tab '+(c===cat?'active':'')+'" onclick="cat=\''+c.replace(/'/g,"\\'")+'\';kasir()">'+esc(c)+'</button>').join('');
  const q=(document.getElementById('findSvc').value||'').toLowerCase();
  const list=db.services.filter(s=>(cat==='Semua'||s.cat===cat)&&(!q||s.name.toLowerCase().includes(q)));
- document.getElementById('svcGrid').innerHTML=list.map(s=>'<button class="service" onclick="add('+s.id+')"><b>'+esc(s.name)+'</b><small>'+rp(s.price)+' / '+esc(s.unit)+'</small></button>').join('')||'<div class="empty">Tidak ditemukan.</div>';
+ document.getElementById('svcGrid').innerHTML=list.map(s=>'<button class="service" onclick="add('+s.id+')"><b>'+esc(s.name)+'</b><small>'+rp(s.price)+' / '+(s.cat==='Banner'?'m²':esc(s.unit))+'</small>'+(s.cat==='Banner'?'<small style="display:block;margin-top:5px;color:#1f6b4f;font-weight:700">📐 Ukuran Custom</small>':'')+'</button>').join('')||'<div class="empty">Tidak ditemukan.</div>';
  const sub=cart.reduce((a,x)=>a+(x.area?x.area*x.price*x.qty:x.qty*x.price),0),disc=Number(document.getElementById('disc').value||0),total=Math.max(0,sub-disc);
- document.getElementById('cart').innerHTML=cart.map((x,i)=>'<div class="cart-item"><span><b>'+esc(x.name)+'</b><br><small>'+x.qty+' '+esc(x.unit)+' × '+rp(x.price)+'</small></span><span class="qty"><button onclick="chg('+i+',-1)">−</button> '+x.qty+' <button onclick="chg('+i+',1)">+</button><br><b>'+rp(x.qty*x.price)+'</b></span></div>').join('')||'<div class="empty">Keranjang kosong.</div>';
+ const cb=document.getElementById('customSizeBox'); if(cb){ if(customDraft){cb.style.display='block';cb.innerHTML='<h3>📐 Ukuran Custom — '+esc(customDraft.name)+'</h3><div class="hint">Masukkan ukuran sesuai pesanan. Harga dihitung berdasarkan luas (m²).</div><div class="size-grid"><div><label>Lebar (meter)</label><input id="customW" type="number" min="0.01" step="0.01" value="'+(customDraft.width||'')+'" oninput="updateCustomArea()"></div><div><label>Tinggi (meter)</label><input id="customH" type="number" min="0.01" step="0.01" value="'+(customDraft.height||'')+'" oninput="updateCustomArea()"></div><div><label>Qty</label><input id="customQty" type="number" min="1" step="1" value="'+(customDraft.qty||1)+'" oninput="updateCustomArea()"></div></div><div class="area" id="customArea">Luas: 0 m² • Total: Rp0</div><button class="btn primary" onclick="addCustomToCart()">+ Tambahkan ke Keranjang</button> <button class="btn light" onclick="customDraft=null;kasir()">Batal</button>';}else{cb.style.display='none';cb.innerHTML='';}} document.getElementById('cart').innerHTML=cart.map((x,i)=>'<div class="cart-item"><span><b>'+esc(x.name)+'</b><br><small>'+x.qty+' '+esc(x.unit)+' × '+rp(x.price)+'</small></span><span class="qty"><button onclick="chg('+i+',-1)">−</button> '+x.qty+' <button onclick="chg('+i+',1)">+</button><br><b>'+rp(x.qty*x.price)+'</b></span></div>').join('')||'<div class="empty">Keranjang kosong.</div>';
  document.getElementById('subTotal').textContent=rp(sub);document.getElementById('discount').textContent=rp(disc);document.getElementById('total').textContent=rp(total);
 }
 document.getElementById('findSvc').oninput=kasir;document.getElementById('disc').oninput=kasir;
 window.add=function(id){
  const s=db.services.find(x=>x.id===id); if(!s)return;
- if(s.unit==='m²'){
+ if(s.cat==='Banner'||s.unit==='m²'){
+   customDraft={serviceId:s.id,name:s.name,price:s.price,width:'',height:'',qty:1};kasir();return;
+ }
+ if(false){
    const w=prompt('Lebar ('+'meter'+')\nContoh: 3 untuk 3 meter','3'); if(w===null)return;
    const h=prompt('Tinggi ('+'meter'+')\nContoh: 1 untuk 1 meter','1'); if(h===null)return;
    const width=Number(String(w).replace(',','.')),height=Number(String(h).replace(',','.'));
@@ -75,6 +78,8 @@ window.add=function(id){
  }
  kasir()
 }
+window.updateCustomArea=function(){if(!customDraft)return;const w=Number(document.getElementById('customW')?.value||0),h=Number(document.getElementById('customH')?.value||0),q=Number(document.getElementById('customQty')?.value||1),a=Math.max(0,w*h);const el=document.getElementById('customArea');if(el)el.textContent='Luas: '+a.toFixed(2).replace(/\.00$/,'')+' m² • Total: '+rp(a*customDraft.price*q)};
+window.addCustomToCart=function(){if(!customDraft)return;const w=Number(document.getElementById('customW').value),h=Number(document.getElementById('customH').value),q=Number(document.getElementById('customQty').value||1);if(!(w>0&&h>0&&q>0))return alert('Lebar, tinggi, dan qty harus diisi dengan benar.');const area=Math.round(w*h*10000)/10000;cart.push({id:Date.now()+Math.floor(Math.random()*1000),serviceId:customDraft.serviceId,name:customDraft.name+' ('+w+' × '+h+' m)',unit:'m²',price:customDraft.price,qty:q,width:w,height:h,area});customDraft=null;kasir()};
 window.chg=function(i,n){cart[i].qty+=n;if(cart[i].qty<1)cart.splice(i,1);kasir()}
 document.getElementById('clear').onclick=()=>{cart=[];document.getElementById('disc').value=0;kasir()};
 
