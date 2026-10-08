@@ -13,7 +13,8 @@
   <div class="nav">
     <button class="active" data-view="dashboard">🏠 Dashboard</button>
     <button data-view="kasir">🧾 Kasir</button>
-    <button data-view="pesanan">📋 Pesanan</button>
+    <button data-view="pesanan">📋 Pesanan Aktif</button>
+    <button data-view="arsip">🗄️ Riwayat / Arsip</button>
     <button data-view="layanan">🖨️ Layanan & Harga</button>
     <button data-view="laporan">📊 Laporan</button>
     <button data-view="pengaturan">⚙️ Pengaturan</button>
@@ -53,6 +54,8 @@
 </section>
 
 <section class="view" id="v-pesanan"><div class="card"><div class="top"><h2>Pesanan Percetakan</h2><div><input id="findOrder" placeholder="Cari..." style="padding:9px;border:1px solid #ddd;border-radius:9px"><select id="filterOrder" style="padding:9px;border:1px solid #ddd;border-radius:9px"><option>Semua</option><option>Menunggu</option><option>Diproses</option><option>Selesai</option><option>Dibatalkan</option></select></div></div><div class="tablewrap"><table class="table"><thead><tr><th>Nota</th><th>Tanggal</th><th>Pelanggan</th><th>Pesanan</th><th>Selesai / Diambil</th><th>Total</th><th>Bayar</th><th>Status</th><th>Ubah</th></tr></thead><tbody id="orderRows"></tbody></table></div></div></section>
+
+<section class="view" id="v-arsip"><div class="card"><div class="top"><h2>Riwayat / Arsip Pesanan</h2><div><input id="findArchive" placeholder="Cari nota / pelanggan..." style="padding:9px;border:1px solid #ddd;border-radius:9px"></div></div><div class="tablewrap"><table class="table"><thead><tr><th>Nota</th><th>Tanggal</th><th>Pelanggan</th><th>Selesai / Diambil</th><th>Total</th><th>Status</th><th>Aksi</th></tr></thead><tbody id="archiveRows"></tbody></table></div></div></section>
 
 <section class="view" id="v-layanan"><div class="card"><div class="top"><h2>Daftar Layanan & Harga</h2><button class="btn primary" id="addSvc">+ Tambah Layanan</button></div><div class="tablewrap"><table class="table"><thead><tr><th>Kategori</th><th>Layanan</th><th>Satuan</th><th>Harga</th><th>Aksi</th></tr></thead><tbody id="serviceRows"></tbody></table></div></div></section>
 
