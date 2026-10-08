@@ -21,8 +21,6 @@ transactions:[],settings:{name:'STUDIO JOYO BARU 2',sub:'PHOTO • PRINTING • 
 };
 let cart=[],cat='Semua',customDraft=null;
 
-function save(){localStorage.setItem(KEY,JSON.stringify(db))}
-
 // ==================== SUPABASE ONLINE ====================
 const SUPABASE_URL='https://makwwkvfignunryprxkj.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY='sb_publishable_DOhmDG2qDlznNvbGQM024g_J3gb0k7M';
@@ -87,7 +85,8 @@ async function loadCloud(){
 async function startCloud(){
   const {data:{session}}=await supabaseClient.auth.getSession();
   if(session){
-    try{await loadCloud();cloudReady=true;showLogin(false);renderAll()}catch(e){showLogin(true,'Database belum dapat dibaca: '+e.message);console.error(e)}
+    cloudReady=true;
+    try{await loadCloud();showLogin(false);renderAll()}catch(e){cloudReady=false;showLogin(true,'Database belum dapat dibaca: '+e.message);console.error(e)}
   }else showLogin(true);
 }
 document.getElementById('loginBtn').onclick=loginKasir;
@@ -96,7 +95,7 @@ document.getElementById('logoutBtn').onclick=logoutKasir;
 supabaseClient.auth.onAuthStateChange(async(event,session)=>{
   if(event==='SIGNED_OUT'){cloudReady=false;showLogin(true);return}
   if(session && (event==='SIGNED_IN'||event==='INITIAL_SESSION')){
-    try{await loadCloud();cloudReady=true;showLogin(false);renderAll()}catch(e){showLogin(true,'Gagal memuat database: '+e.message);console.error(e)}
+    try{cloudReady=true;await loadCloud();showLogin(false);renderAll()}catch(e){cloudReady=false;showLogin(true,'Gagal memuat database: '+e.message);console.error(e)}
   }
 });
 
