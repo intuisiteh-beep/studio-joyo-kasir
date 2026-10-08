@@ -9,7 +9,7 @@ services:[
 {id:6,cat:'Finishing',name:'Laminating A4',unit:'lembar',price:5000},
 {id:7,cat:'Finishing',name:'Jilid',unit:'pcs',price:10000},
 {id:8,cat:'Finishing',name:'Spiral Besi',unit:'pcs',price:12000},
-{id:9,cat:'Banner',name:'Banner',unit:'m²',price:25000},
+{id:9,cat:'Banner',name:'Banner',unit:'m²',price:25000},{id:16,cat:'Banner',name:'Spanduk',unit:'m²',price:25000},
 {id:10,cat:'Banner',name:'X-Banner',unit:'pcs',price:75000},
 {id:11,cat:'Cetak Khusus',name:'Poster A3',unit:'pcs',price:15000},
 {id:12,cat:'Cetak Khusus',name:'Kartu Nama',unit:'box',price:30000},
@@ -22,6 +22,8 @@ transactions:[],settings:{name:'STUDIO JOYO BARU 2',sub:'PHOTO • PRINTING • 
 let cart=[],cat='Semua';
 
 function save(){localStorage.setItem(KEY,JSON.stringify(db))}
+// Pastikan layanan banner/spanduk memakai perhitungan luas untuk database lama.
+(function migrate(){const b=db.services.find(x=>x.name==='Banner');if(b)b.unit='m²';if(!db.services.some(x=>x.name==='Spanduk'))db.services.push({id:16,cat:'Banner',name:'Spanduk',unit:'m²',price:25000});save()})();
 function rp(n){return new Intl.NumberFormat('id-ID',{style:'currency',currency:'IDR',maximumFractionDigits:0}).format(n||0).replace('IDR','Rp')}
 function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function today(){return new Date().toISOString().slice(0,10)}
@@ -53,18 +55,32 @@ function kasir(){
  const q=(document.getElementById('findSvc').value||'').toLowerCase();
  const list=db.services.filter(s=>(cat==='Semua'||s.cat===cat)&&(!q||s.name.toLowerCase().includes(q)));
  document.getElementById('svcGrid').innerHTML=list.map(s=>'<button class="service" onclick="add('+s.id+')"><b>'+esc(s.name)+'</b><small>'+rp(s.price)+' / '+esc(s.unit)+'</small></button>').join('')||'<div class="empty">Tidak ditemukan.</div>';
- const sub=cart.reduce((a,x)=>a+x.qty*x.price,0),disc=Number(document.getElementById('disc').value||0),total=Math.max(0,sub-disc);
+ const sub=cart.reduce((a,x)=>a+(x.area?x.area*x.price*x.qty:x.qty*x.price),0),disc=Number(document.getElementById('disc').value||0),total=Math.max(0,sub-disc);
  document.getElementById('cart').innerHTML=cart.map((x,i)=>'<div class="cart-item"><span><b>'+esc(x.name)+'</b><br><small>'+x.qty+' '+esc(x.unit)+' × '+rp(x.price)+'</small></span><span class="qty"><button onclick="chg('+i+',-1)">−</button> '+x.qty+' <button onclick="chg('+i+',1)">+</button><br><b>'+rp(x.qty*x.price)+'</b></span></div>').join('')||'<div class="empty">Keranjang kosong.</div>';
  document.getElementById('subTotal').textContent=rp(sub);document.getElementById('discount').textContent=rp(disc);document.getElementById('total').textContent=rp(total);
 }
 document.getElementById('findSvc').oninput=kasir;document.getElementById('disc').oninput=kasir;
-window.add=function(id){const s=db.services.find(x=>x.id===id),x=cart.find(x=>x.id===id);if(x)x.qty++;else cart.push({id:s.id,name:s.name,unit:s.unit,price:s.price,qty:1});kasir()}
+window.add=function(id){
+ const s=db.services.find(x=>x.id===id); if(!s)return;
+ if(s.unit==='m²'){
+   const w=prompt('Lebar ('+'meter'+')\nContoh: 3 untuk 3 meter','3'); if(w===null)return;
+   const h=prompt('Tinggi ('+'meter'+')\nContoh: 1 untuk 1 meter','1'); if(h===null)return;
+   const width=Number(String(w).replace(',','.')),height=Number(String(h).replace(',','.'));
+   if(!(width>0&&height>0))return alert('Ukuran tidak valid. Masukkan angka lebih dari 0.');
+   const area=Math.round(width*height*10000)/10000;
+   const customId=Date.now()+Math.floor(Math.random()*1000);
+   cart.push({id:customId,serviceId:s.id,name:s.name+' ('+width+' × '+height+' m)',unit:'m²',price:s.price,qty:1,width,height,area});
+ }else{
+   const x=cart.find(x=>x.id===id);if(x)x.qty++;else cart.push({id:s.id,serviceId:s.id,name:s.name,unit:s.unit,price:s.price,qty:1});
+ }
+ kasir()
+}
 window.chg=function(i,n){cart[i].qty+=n;if(cart[i].qty<1)cart.splice(i,1);kasir()}
 document.getElementById('clear').onclick=()=>{cart=[];document.getElementById('disc').value=0;kasir()};
 
 document.getElementById('saveTx').onclick=()=>{
  if(!cart.length)return alert('Keranjang masih kosong.');
- const sub=cart.reduce((a,x)=>a+x.qty*x.price,0),disc=Number(document.getElementById('disc').value||0),total=Math.max(0,sub-disc);
+ const sub=cart.reduce((a,x)=>a+(x.area?x.area*x.price*x.qty:x.qty*x.price),0),disc=Number(document.getElementById('disc').value||0),total=Math.max(0,sub-disc);
  const id=Date.now(),invoice='SJB2-'+new Date().toISOString().slice(0,10).replaceAll('-','')+'-'+String(db.transactions.length+1).padStart(4,'0');
  const dueDate=document.getElementById('dueDate').value;
  if(!dueDate)return alert('Silakan tentukan tanggal dan jam selesai / pengambilan.');
