@@ -39,10 +39,21 @@ function showLogin(show,msg=''){
 async function loginKasir(){
   const email=document.getElementById('loginEmail').value.trim(), password=document.getElementById('loginPassword').value;
   const btn=document.getElementById('loginBtn'); if(!email||!password){showLogin(true,'Email dan password wajib diisi.');return}
-  btn.disabled=true;btn.textContent='Memproses...';
-  const {error}=await supabaseClient.auth.signInWithPassword({email,password});
-  btn.disabled=false;btn.textContent='Masuk';
-  if(error)showLogin(true,'Login gagal: '+error.message);
+  btn.disabled=true;btn.textContent='Memeriksa koneksi...';
+  try{
+    const test=await fetch(SUPABASE_URL+'/auth/v1/settings',{method:'GET',headers:{apikey:SUPABASE_PUBLISHABLE_KEY}});
+    if(!test.ok) throw new Error('Server Supabase tidak merespons normal (HTTP '+test.status+').');
+    btn.textContent='Memproses...';
+    const {error}=await supabaseClient.auth.signInWithPassword({email,password});
+    if(error)showLogin(true,'Login gagal: '+error.message);
+  }catch(e){
+    const msg=String(e?.message||e);
+    if(/Failed to fetch|NetworkError|fetch/i.test(msg)){
+      showLogin(true,'Tidak bisa terhubung ke server Supabase. Periksa apakah project Supabase aktif dan URL API benar. Coba buka '+SUPABASE_URL+' di browser yang sama.');
+    }else showLogin(true,'Login gagal: '+msg);
+  }finally{
+    btn.disabled=false;btn.textContent='Masuk';
+  }
 }
 async function logoutKasir(){await supabaseClient.auth.signOut()}
 async function syncCloud(){
