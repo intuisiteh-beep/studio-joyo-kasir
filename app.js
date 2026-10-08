@@ -31,14 +31,14 @@ function view(id){
  document.querySelectorAll('.view').forEach(x=>x.classList.remove('active'));
  document.getElementById(id).classList.add('active');
  document.querySelectorAll('.nav button').forEach(x=>x.classList.toggle('active',x.dataset.view===id.replace('v-','')));
- const titles={dashboard:['Dashboard','Ringkasan penjualan hari ini'],kasir:['Kasir','Input transaksi pelanggan'],pesanan:['Pesanan','Status pesanan percetakan'],layanan:['Layanan & Harga','Kelola layanan dan harga'],laporan:['Laporan','Laporan penjualan'],pengaturan:['Pengaturan','Identitas toko dan data']};
+ const titles={dashboard:['Dashboard','Ringkasan penjualan hari ini'],kasir:['Kasir','Input transaksi pelanggan'],pesanan:['Pesanan','Status pesanan percetakan'],arsip:['Riwayat / Arsip','Pesanan yang sudah diarsipkan'],layanan:['Layanan & Harga','Kelola layanan dan harga'],laporan:['Laporan','Laporan penjualan'],pengaturan:['Pengaturan','Identitas toko dan data']};
  const t=titles[id.replace('v-','')]||titles.dashboard;document.getElementById('title').textContent=t[0];document.getElementById('sub').textContent=t[1];
  renderAll();
 }
 document.querySelectorAll('.nav button').forEach(b=>b.onclick=()=>view('v-'+b.dataset.view));
 document.getElementById('newTx').onclick=()=>view('v-kasir');
 
-function renderAll(){dash();kasir();orders();services();report();settings()}
+function renderAll(){dash();kasir();orders();renderArchive();services();report();settings()}
 function dash(){
  const tx=db.transactions.filter(t=>t.date.slice(0,10)===today());
  document.getElementById('omzet').textContent=rp(tx.reduce((a,t)=>a+t.total,0));
@@ -74,11 +74,25 @@ document.getElementById('saveTx').onclick=()=>{
 
 function orders(){
  const q=(document.getElementById('findOrder').value||'').toLowerCase(),f=document.getElementById('filterOrder').value;
- const rows=db.transactions.slice().sort((a,b)=>b.date.localeCompare(a.date)).filter(t=>(f==='Semua'||t.status===f)&&((t.invoice+' '+t.customer).toLowerCase().includes(q)));
- document.getElementById('orderRows').innerHTML=rows.map(t=>'<tr><td><b>'+t.invoice+'</b></td><td>'+new Date(t.date).toLocaleDateString('id-ID')+'</td><td>'+esc(t.customer||'Umum')+'</td><td>'+t.items.map(i=>esc(i.name)+' × '+i.qty).join('<br>')+'</td><td><b>'+ (t.dueDate?new Date(t.dueDate).toLocaleString('id-ID',{weekday:'long',day:'2-digit',month:'long',year:'numeric',hour:'2-digit',minute:'2-digit'}):'Belum ditentukan') +'</b></td><td>'+rp(t.total)+'</td><td>'+t.payment+'</td><td>'+badge(t.status)+'</td><td><select onchange="setStatus('+t.id+',this.value)"><option '+(t.status==='Menunggu'?'selected':'')+'>Menunggu</option><option '+(t.status==='Diproses'?'selected':'')+'>Diproses</option><option '+(t.status==='Selesai'?'selected':'')+'>Selesai</option><option '+(t.status==='Dibatalkan'?'selected':'')+'>Dibatalkan</option></select><br><button class="btn light" style="margin-top:5px" onclick="openReceipt('+t.id+')">🧾 Nota</button></td></tr>').join('')||'<tr><td colspan="8" class="empty">Belum ada pesanan.</td></tr>';
+ const rows=db.transactions.slice().sort((a,b)=>b.date.localeCompare(a.date)).filter(t=>!t.archived&&(f==='Semua'||t.status===f)&&((t.invoice+' '+t.customer).toLowerCase().includes(q)));
+ document.getElementById('orderRows').innerHTML=rows.map(t=>'<tr><td><b>'+t.invoice+'</b></td><td>'+new Date(t.date).toLocaleDateString('id-ID')+'</td><td>'+esc(t.customer||'Umum')+'</td><td>'+t.items.map(i=>esc(i.name)+' × '+i.qty).join('<br>')+'</td><td><b>'+ (t.dueDate?new Date(t.dueDate).toLocaleString('id-ID',{weekday:'long',day:'2-digit',month:'long',year:'numeric',hour:'2-digit',minute:'2-digit'}):'Belum ditentukan') +'</b></td><td>'+rp(t.total)+'</td><td>'+t.payment+'</td><td>'+badge(t.status)+'</td><td><select onchange="setStatus('+t.id+',this.value)"><option '+(t.status==='Menunggu'?'selected':'')+'>Menunggu</option><option '+(t.status==='Diproses'?'selected':'')+'>Diproses</option><option '+(t.status==='Selesai'?'selected':'')+'>Selesai</option><option '+(t.status==='Dibatalkan'?'selected':'')+'>Dibatalkan</option></select><br><button class="btn light" style="margin-top:5px" onclick="openReceipt('+t.id+')">🧾 Nota</button><br><button class="btn secondary" style="margin-top:5px" onclick="archiveOrder('+t.id+')">🗄️ Arsipkan</button></td></tr>').join('')||'<tr><td colspan="8" class="empty">Belum ada pesanan.</td></tr>';
 }
 window.setStatus=(id,s)=>{const t=db.transactions.find(x=>x.id===id);if(t){t.status=s;save();orders();dash()}}
 document.getElementById('findOrder').oninput=orders;document.getElementById('filterOrder').onchange=orders;
+function renderArchive(){
+ const q=(document.getElementById('findArchive')?.value||'').toLowerCase();
+ const rows=db.transactions.filter(t=>t.archived).slice().sort((a,b)=>b.date.localeCompare(a.date)).filter(t=>(t.invoice+' '+(t.customer||'')).toLowerCase().includes(q));
+ const el=document.getElementById('archiveRows'); if(!el)return;
+ el.innerHTML=rows.map(t=>'<tr><td><b>'+esc(t.invoice)+'</b></td><td>'+new Date(t.date).toLocaleDateString('id-ID')+'</td><td>'+esc(t.customer||'Umum')+'</td><td>'+(t.dueDate?new Date(t.dueDate).toLocaleString('id-ID',{weekday:'long',day:'2-digit',month:'long',year:'numeric',hour:'2-digit',minute:'2-digit'}):'-')+'</td><td>'+rp(t.total)+'</td><td>'+badge(t.status)+'</td><td><button class="btn light" onclick="openReceipt('+t.id+')">🧾 Nota</button> <button class="btn danger" onclick="deleteOrder('+t.id+')">Hapus</button></td></tr>').join('')||'<tr><td colspan="7" class="empty">Belum ada arsip.</td></tr>';
+}
+window.archiveOrder=function(id){
+ const t=db.transactions.find(x=>x.id===id); if(!t)return;
+ if(t.status!=='Selesai')return alert('Pesanan harus berstatus Selesai sebelum diarsipkan.');
+ t.archived=true;save();orders();renderArchive();dash();
+}
+window.restoreOrder=function(id){const t=db.transactions.find(x=>x.id===id);if(t){t.archived=false;save();orders();renderArchive();dash()}}
+window.deleteOrder=function(id){if(!confirm('Hapus pesanan ini secara permanen? Data transaksi juga akan hilang dari laporan.'))return;db.transactions=db.transactions.filter(x=>x.id!==id);save();orders();renderArchive();dash();report();}
+document.getElementById('findArchive').oninput=renderArchive;
 
 function services(){
  document.getElementById('serviceRows').innerHTML=db.services.map(s=>'<tr><td>'+esc(s.cat)+'</td><td>'+esc(s.name)+'</td><td>'+esc(s.unit)+'</td><td>'+rp(s.price)+'</td><td><button class="btn light" onclick="editSvc('+s.id+')">Edit</button> <button class="btn danger" onclick="delSvc('+s.id+')">Hapus</button></td></tr>').join('');
