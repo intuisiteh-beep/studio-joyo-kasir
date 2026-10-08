@@ -22,6 +22,84 @@ transactions:[],settings:{name:'STUDIO JOYO BARU 2',sub:'PHOTO • PRINTING • 
 let cart=[],cat='Semua',customDraft=null;
 
 function save(){localStorage.setItem(KEY,JSON.stringify(db))}
+
+// ==================== SUPABASE ONLINE ====================
+const SUPABASE_URL='https://makwwkvfignunryprxkj.supabase.co';
+const SUPABASE_PUBLISHABLE_KEY='sb_publishable_DOhmDG2qDlznNvbGQM024g_J3gb0k7M';
+const supabaseClient=window.supabase.createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY);
+let cloudReady=false, cloudBusy=false, cloudTimer=null;
+
+function localSave(){localStorage.setItem(KEY,JSON.stringify(db))}
+function save(){localSave(); if(cloudReady) queueCloudSync()}
+function queueCloudSync(){clearTimeout(cloudTimer);cloudTimer=setTimeout(()=>syncCloud().catch(e=>console.error(e)),500)}
+
+function showLogin(show,msg=''){
+  const g=document.getElementById('loginGate'); if(g)g.style.display=show?'flex':'none';
+  const m=document.getElementById('loginMsg'); if(m)m.textContent=msg;
+  const out=document.getElementById('logoutBtn'); if(out)out.style.display=show?'none':'inline-block';
+}
+async function loginKasir(){
+  const email=document.getElementById('loginEmail').value.trim(), password=document.getElementById('loginPassword').value;
+  const btn=document.getElementById('loginBtn'); if(!email||!password){showLogin(true,'Email dan password wajib diisi.');return}
+  btn.disabled=true;btn.textContent='Memproses...';
+  const {error}=await supabaseClient.auth.signInWithPassword({email,password});
+  btn.disabled=false;btn.textContent='Masuk';
+  if(error)showLogin(true,'Login gagal: '+error.message);
+}
+async function logoutKasir(){await supabaseClient.auth.signOut()}
+async function syncCloud(){
+  if(!cloudReady||cloudBusy)return;
+  cloudBusy=true;
+  try{
+    const settingsRow={id:1,store_name:db.settings.name,store_sub:db.settings.sub,phone:db.settings.phone,address:db.settings.address,hours:db.settings.hours,updated_at:new Date().toISOString()};
+    const sr=await supabaseClient.from('sjb_settings').upsert(settingsRow,{onConflict:'id'}); if(sr.error)throw sr.error;
+    if(db.services.length){
+      const services=db.services.map(s=>({id:Number(s.id),category:s.cat,name:s.name,unit:s.unit,price:Number(s.price)||0,active:true,updated_at:new Date().toISOString()}));
+      const rr=await supabaseClient.from('sjb_services').upsert(services,{onConflict:'id'}); if(rr.error)throw rr.error;
+    }
+    for(const t of db.transactions){
+      const row={invoice:t.invoice,transaction_date:t.date,due_date:t.dueDate||null,customer:t.customer||'',phone:t.phone||'',payment:t.payment||'Lunas',channel:t.channel||'Kasir',status:t.status||'Menunggu',discount:Number(t.discount)||0,total:Number(t.total)||0,items:t.items||[],archived:!!t.archived,updated_at:new Date().toISOString()};
+      let q;
+      if(t.remoteId){q=await supabaseClient.from('sjb_transactions').update(row).eq('id',t.remoteId).select('id').single()}
+      else{q=await supabaseClient.from('sjb_transactions').insert(row).select('id').single()}
+      if(q.error)throw q.error;
+      if(!t.remoteId){t.remoteId=q.data.id}
+    }
+    localSave();
+  }finally{cloudBusy=false}
+}
+async function loadCloud(){
+  const [setR,svcR,txR]=await Promise.all([
+    supabaseClient.from('sjb_settings').select('*').limit(1).maybeSingle(),
+    supabaseClient.from('sjb_services').select('*').eq('active',true).order('id'),
+    supabaseClient.from('sjb_transactions').select('*').order('transaction_date',{ascending:false})
+  ]);
+  if(setR.error)throw setR.error;if(svcR.error)throw svcR.error;if(txR.error)throw txR.error;
+  if(!svcR.data?.length && !txR.data?.length){
+    await syncCloud();
+    return;
+  }
+  if(setR.data)db.settings={name:setR.data.store_name,sub:setR.data.store_sub,phone:setR.data.phone||'',address:setR.data.address||'',hours:setR.data.hours||''};
+  if(svcR.data?.length)db.services=svcR.data.map(s=>({id:Number(s.id),cat:s.category,name:s.name,unit:s.unit,price:Number(s.price)}));
+  if(txR.data?.length)db.transactions=txR.data.map((t,i)=>({id:Date.now()+i,remoteId:t.id,invoice:t.invoice,date:t.transaction_date,dueDate:t.due_date||'',customer:t.customer||'',phone:t.phone||'',payment:t.payment,channel:t.channel,status:t.status,discount:Number(t.discount)||0,total:Number(t.total)||0,items:t.items||[],archived:!!t.archived}));
+  localSave();
+}
+async function startCloud(){
+  const {data:{session}}=await supabaseClient.auth.getSession();
+  if(session){
+    try{await loadCloud();cloudReady=true;showLogin(false);renderAll()}catch(e){showLogin(true,'Database belum dapat dibaca: '+e.message);console.error(e)}
+  }else showLogin(true);
+}
+document.getElementById('loginBtn').onclick=loginKasir;
+document.getElementById('loginPassword').addEventListener('keydown',e=>{if(e.key==='Enter')loginKasir()});
+document.getElementById('logoutBtn').onclick=logoutKasir;
+supabaseClient.auth.onAuthStateChange(async(event,session)=>{
+  if(event==='SIGNED_OUT'){cloudReady=false;showLogin(true);return}
+  if(session && (event==='SIGNED_IN'||event==='INITIAL_SESSION')){
+    try{await loadCloud();cloudReady=true;showLogin(false);renderAll()}catch(e){showLogin(true,'Gagal memuat database: '+e.message);console.error(e)}
+  }
+});
+
 // Pastikan layanan banner/spanduk memakai perhitungan luas untuk database lama.
 (function migrate(){const b=db.services.find(x=>x.name==='Banner');if(b)b.unit='m²';if(!db.services.some(x=>x.name==='Spanduk'))db.services.push({id:16,cat:'Banner',name:'Spanduk',unit:'m²',price:25000});if(!db.settings.phone)db.settings.phone='0857 4826 5687';if(!db.settings.address)db.settings.address='Graha Suko Indah No. 1A, Sukolegok, Sukodono, Sidoarjo';save()})();
 function rp(n){return new Intl.NumberFormat('id-ID',{style:'currency',currency:'IDR',maximumFractionDigits:0}).format(n||0).replace('IDR','Rp')}
@@ -86,7 +164,7 @@ document.getElementById('clear').onclick=()=>{cart=[];document.getElementById('d
 document.getElementById('saveTx').onclick=()=>{
  if(!cart.length)return alert('Keranjang masih kosong.');
  const sub=cart.reduce((a,x)=>a+(x.area?x.area*x.price*x.qty:x.qty*x.price),0),disc=Number(document.getElementById('disc').value||0),total=Math.max(0,sub-disc);
- const id=Date.now(),invoice='SJB2-'+new Date().toISOString().slice(0,10).replaceAll('-','')+'-'+String(db.transactions.length+1).padStart(4,'0');
+ const id=Date.now(),invoice='SJB2-'+new Date().toISOString().slice(0,10).replaceAll('-','')+'-'+new Date().toTimeString().slice(0,8).replaceAll(':','')+'-'+Math.random().toString(36).slice(2,6).toUpperCase();
  const dueDate=document.getElementById('dueDate').value;
  if(!dueDate)return alert('Silakan tentukan tanggal dan jam selesai / pengambilan.');
  const t={id,invoice,date:new Date().toISOString(),dueDate,customer:document.getElementById('cust').value.trim(),phone:document.getElementById('phone').value.trim(),payment:document.getElementById('pay').value,channel:document.getElementById('channel').value,status:'Menunggu',discount:disc,total,items:cart.map(x=>({...x}))};
@@ -148,7 +226,7 @@ document.getElementById('backup').onclick=()=>{const a=document.createElement('a
 document.getElementById('reset').onclick=()=>{if(confirm('Hapus semua transaksi?')){db.transactions=[];save();renderAll()}};
 function openReceipt(id){
  const t=db.transactions.find(x=>x.id===id); if(!t)return;
- const subtotal=t.items.reduce((a,i)=>a+i.qty*i.price,0);
+ const subtotal=t.items.reduce((a,i)=>a+(i.area?i.area*i.price*i.qty:i.qty*i.price),0);
  document.getElementById('receiptPaper').innerHTML='<div class="receipt-paper">'+
  '<h2>'+esc(db.settings.name)+'</h2><div class="center small">'+esc(db.settings.sub)+'</div>'+
  (db.settings.address?'<div class="center small">'+esc(db.settings.address)+'</div>':'')+
@@ -173,3 +251,4 @@ function printReceipt(){window.print()}
 window.openReceipt=openReceipt;window.closeReceipt=closeReceipt;window.printReceipt=printReceipt;
 
 view('v-dashboard');
+startCloud();
