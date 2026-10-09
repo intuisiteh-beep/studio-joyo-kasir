@@ -103,7 +103,6 @@ async function startCloud(){
 document.getElementById('loginBtn').onclick=loginKasir;
 document.getElementById('loginPassword').addEventListener('keydown',e=>{if(e.key==='Enter')loginKasir()});
 document.getElementById('logoutBtn').onclick=logoutKasir;
-s
 function showPasswordRecovery() {
   showLogin(false);
 
