@@ -103,12 +103,118 @@ async function startCloud(){
 document.getElementById('loginBtn').onclick=loginKasir;
 document.getElementById('loginPassword').addEventListener('keydown',e=>{if(e.key==='Enter')loginKasir()});
 document.getElementById('logoutBtn').onclick=logoutKasir;
-supabaseClient.auth.onAuthStateChange(async(event,session)=>{
-  if(event==='SIGNED_OUT'){cloudReady=false;showLogin(true);return}
-  if(session && (event==='SIGNED_IN'||event==='INITIAL_SESSION')){
-    try{cloudReady=true;await loadCloud();showLogin(false);renderAll()}catch(e){cloudReady=false;showLogin(true,'Gagal memuat database: '+e.message);console.error(e)}
+s
+function showPasswordRecovery() {
+  showLogin(false);
+
+  let box = document.getElementById('passwordRecoveryGate');
+
+  if (!box) {
+    box = document.createElement('div');
+    box.id = 'passwordRecoveryGate';
+    box.style.cssText =
+      'position:fixed;inset:0;z-index:99999;background:#f3f7f4;' +
+      'display:flex;align-items:center;justify-content:center;padding:20px;' +
+      'font-family:Arial,sans-serif';
+
+    box.innerHTML = `
+      <div style="background:white;padding:28px;border-radius:18px;
+        width:min(420px,100%);box-shadow:0 10px 35px #0002">
+        <h2 style="color:#174b38">Buat Password Baru</h2>
+        <p>Masukkan password baru untuk akun kasir.</p>
+
+        <label for="recoveryPass1">Password baru</label>
+        <input id="recoveryPass1" type="password"
+          autocomplete="new-password"
+          style="box-sizing:border-box;width:100%;padding:12px;
+          margin:8px 0 16px;border:1px solid #ddd;border-radius:8px">
+
+        <label for="recoveryPass2">Ulangi password baru</label>
+        <input id="recoveryPass2" type="password"
+          autocomplete="new-password"
+          style="box-sizing:border-box;width:100%;padding:12px;
+          margin:8px 0 12px;border:1px solid #ddd;border-radius:8px">
+
+        <p id="recoveryMsg" style="color:#b42318"></p>
+
+        <button id="recoverySaveBtn"
+          style="width:100%;padding:13px;background:#1f6b4f;
+          color:white;border:0;border-radius:8px;font-weight:bold">
+          Simpan Password Baru
+        </button>
+      </div>`;
+
+    document.body.appendChild(box);
+
+    document.getElementById('recoverySaveBtn').onclick = async () => {
+      const p1 = document.getElementById('recoveryPass1').value;
+      const p2 = document.getElementById('recoveryPass2').value;
+      const msg = document.getElementById('recoveryMsg');
+      const btn = document.getElementById('recoverySaveBtn');
+
+      if (p1.length < 8) {
+        msg.textContent = 'Password minimal 8 karakter.';
+        return;
+      }
+
+      if (p1 !== p2) {
+        msg.textContent = 'Kedua password belum sama.';
+        return;
+      }
+
+      btn.disabled = true;
+      btn.textContent = 'Menyimpan...';
+      msg.textContent = '';
+
+      try {
+        const { error } =
+          await supabaseClient.auth.updateUser({ password: p1 });
+
+        if (error) throw error;
+
+        box.remove();
+        await supabaseClient.auth.signOut();
+        showLogin(true,
+          'Password berhasil diubah. Silakan login dengan password baru.');
+      } catch (e) {
+        msg.textContent = 'Gagal mengubah password: ' + e.message;
+        btn.disabled = false;
+        btn.textContent = 'Simpan Password Baru';
+      }
+    };
+  }
+
+  box.style.display = 'flex';
+}
+
+supabaseClient.auth.onAuthStateChange(async (event, session) => {
+  if (event === 'PASSWORD_RECOVERY') {
+    showPasswordRecovery();
+    return;
+  }
+
+  if (event === 'SIGNED_OUT') {
+    cloudReady = false;
+    if (!document.getElementById('passwordRecoveryGate')) {
+      showLogin(true);
+    }
+    return;
+  }
+
+  if (session && (event === 'SIGNED_IN' || event === 'INITIAL_SESSION')) {
+    try {
+      cloudReady = true;
+      await loadCloud();
+      showLogin(false);
+      renderAll();
+    } catch (e) {
+      cloudReady = false;
+      showLogin(true, 'Gagal memuat database: ' + e.message);
+      console.error(e);
+    }
   }
 });
+
 
 // Pastikan layanan banner/spanduk memakai perhitungan luas untuk database lama.
 (function migrate(){const b=db.services.find(x=>x.name==='Banner');if(b)b.unit='m²';if(!db.services.some(x=>x.name==='Spanduk'))db.services.push({id:16,cat:'Banner',name:'Spanduk',unit:'m²',price:25000});if(!db.settings.phone)db.settings.phone='0857 4826 5687';if(!db.settings.address)db.settings.address='Graha Suko Indah No. 1A, Sukolegok, Sukodono, Sidoarjo';save()})();
