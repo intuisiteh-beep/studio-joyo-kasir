@@ -60,14 +60,37 @@ async function syncCloud(){
   if(!cloudReady||cloudBusy)return;
   cloudBusy=true;
   try{
-    const settingsRow={id:1,store_name:db.settings.name,store_sub:db.settings.sub,phone:db.settings.phone,address:db.settings.address,hours:db.settings.hours,updated_at:new Date().toISOString()};
+    const now=new Date().toISOString();
+    const settingsRow={id:1,store_name:db.settings.name,store_sub:db.settings.sub,phone:db.settings.phone,address:db.settings.address,hours:db.settings.hours,updated_at:now};
     const sr=await supabaseClient.from('sjb_settings').upsert(settingsRow,{onConflict:'id'}); if(sr.error)throw sr.error;
+
+    // Reconcile deleted services: keep them in the database as inactive so they do not return after login.
+    const remoteSvc=await supabaseClient.from('sjb_services').select('id,active');
+    if(remoteSvc.error)throw remoteSvc.error;
+    const localServiceIds=new Set(db.services.map(s=>Number(s.id)));
+    const removedServiceIds=(remoteSvc.data||[]).filter(s=>s.active && !localServiceIds.has(Number(s.id))).map(s=>s.id);
+    if(removedServiceIds.length){
+      const dr=await supabaseClient.from('sjb_services').update({active:false,updated_at:now}).in('id',removedServiceIds);
+      if(dr.error)throw dr.error;
+    }
     if(db.services.length){
-      const services=db.services.map(s=>({id:Number(s.id),category:s.cat,name:s.name,unit:s.unit,price:Number(s.price)||0,active:true,updated_at:new Date().toISOString()}));
+      const services=db.services.map(s=>({id:Number(s.id),category:s.cat,name:s.name,unit:s.unit,price:Number(s.price)||0,active:true,updated_at:now}));
       const rr=await supabaseClient.from('sjb_services').upsert(services,{onConflict:'id'}); if(rr.error)throw rr.error;
     }
+
+    // Permanently remove cloud transactions that were deleted locally.
+    const remoteTx=await supabaseClient.from('sjb_transactions').select('id,invoice');
+    if(remoteTx.error)throw remoteTx.error;
+    const localRemoteIds=new Set(db.transactions.filter(t=>t.remoteId).map(t=>String(t.remoteId)));
+    const localInvoices=new Set(db.transactions.map(t=>String(t.invoice)));
+    const removedTxIds=(remoteTx.data||[]).filter(t=>!localRemoteIds.has(String(t.id))&&!localInvoices.has(String(t.invoice))).map(t=>t.id);
+    if(removedTxIds.length){
+      const dr=await supabaseClient.from('sjb_transactions').delete().in('id',removedTxIds);
+      if(dr.error)throw dr.error;
+    }
+
     for(const t of db.transactions){
-      const row={invoice:t.invoice,transaction_date:t.date,due_date:t.dueDate||null,customer:t.customer||'',phone:t.phone||'',payment:t.payment||'Lunas',channel:t.channel||'Kasir',status:t.status||'Menunggu',discount:Number(t.discount)||0,total:Number(t.total)||0,items:t.items||[],archived:!!t.archived,updated_at:new Date().toISOString()};
+      const row={invoice:t.invoice,transaction_date:t.date,due_date:t.dueDate||null,customer:t.customer||'',phone:t.phone||'',payment:t.payment||'Lunas',channel:t.channel||'Kasir',status:t.status||'Menunggu',discount:Number(t.discount)||0,total:Number(t.total)||0,items:t.items||[],archived:!!t.archived,updated_at:now};
       let q;
       if(t.remoteId){q=await supabaseClient.from('sjb_transactions').update(row).eq('id',t.remoteId).select('id').single()}
       else{q=await supabaseClient.from('sjb_transactions').insert(row).select('id').single()}
@@ -80,17 +103,18 @@ async function syncCloud(){
 async function loadCloud(){
   const [setR,svcR,txR]=await Promise.all([
     supabaseClient.from('sjb_settings').select('*').limit(1).maybeSingle(),
-    supabaseClient.from('sjb_services').select('*').eq('active',true).order('id'),
+    supabaseClient.from('sjb_services').select('*').order('id'),
     supabaseClient.from('sjb_transactions').select('*').order('transaction_date',{ascending:false})
   ]);
   if(setR.error)throw setR.error;if(svcR.error)throw svcR.error;if(txR.error)throw txR.error;
+  // Only migrate browser data when both cloud tables have never had records.
   if(!svcR.data?.length && !txR.data?.length){
     await syncCloud();
     return;
   }
   if(setR.data)db.settings={name:setR.data.store_name,sub:setR.data.store_sub,phone:setR.data.phone||'',address:setR.data.address||'',hours:setR.data.hours||''};
-  if(svcR.data?.length)db.services=svcR.data.map(s=>({id:Number(s.id),cat:s.category,name:s.name,unit:s.unit,price:Number(s.price)}));
-  if(txR.data?.length)db.transactions=txR.data.map((t,i)=>({id:Date.now()+i,remoteId:t.id,invoice:t.invoice,date:t.transaction_date,dueDate:t.due_date||'',customer:t.customer||'',phone:t.phone||'',payment:t.payment,channel:t.channel,status:t.status,discount:Number(t.discount)||0,total:Number(t.total)||0,items:t.items||[],archived:!!t.archived}));
+  db.services=(svcR.data||[]).filter(s=>s.active).map(s=>({id:Number(s.id),cat:s.category,name:s.name,unit:s.unit,price:Number(s.price)}));
+  db.transactions=(txR.data||[]).map((t,i)=>({id:Date.now()+i,remoteId:t.id,invoice:t.invoice,date:t.transaction_date,dueDate:t.due_date||'',customer:t.customer||'',phone:t.phone||'',payment:t.payment,channel:t.channel,status:t.status,discount:Number(t.discount)||0,total:Number(t.total)||0,items:t.items||[],archived:!!t.archived}));
   localSave();
 }
 async function startCloud(){
