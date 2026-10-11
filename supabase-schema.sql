@@ -22,6 +22,10 @@ create table if not exists public.sjb_services (
   updated_at timestamptz not null default now()
 );
 
+
+-- Pilihan ukuran/varian layanan (misalnya Brosur A6/A5/A4).
+alter table public.sjb_services add column if not exists variants jsonb not null default '[]'::jsonb;
+
 create table if not exists public.sjb_transactions (
   id uuid primary key default gen_random_uuid(),
   invoice text not null unique,
