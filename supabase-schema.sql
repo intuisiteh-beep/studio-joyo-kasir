@@ -98,3 +98,7 @@ as $$
 $$;
 
 grant execute on function public.sjb_next_invoice() to authenticated;
+
+
+-- Nominal DP/uang yang sudah dibayarkan dan sisa pembayaran.
+alter table public.sjb_transactions add column if not exists dp numeric(14,2) not null default 0;
