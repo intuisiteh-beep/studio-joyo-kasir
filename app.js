@@ -90,7 +90,7 @@ async function syncCloud(){
     }
 
     for(const t of db.transactions){
-      const row={invoice:t.invoice,transaction_date:t.date,due_date:t.dueDate||null,customer:t.customer||'',phone:t.phone||'',payment:t.payment||'Lunas',channel:t.channel||'Kasir',status:t.status||'Menunggu',discount:Number(t.discount)||0,total:Number(t.total)||0,items:t.items||[],archived:!!t.archived,updated_at:now};
+      const row={invoice:t.invoice,transaction_date:t.date,due_date:t.dueDate||null,customer:t.customer||'',phone:t.phone||'',payment:t.payment||'Lunas',dp:Number(t.dp)||0,channel:t.channel||'Kasir',status:t.status||'Menunggu',discount:Number(t.discount)||0,total:Number(t.total)||0,items:t.items||[],archived:!!t.archived,updated_at:now};
       let q;
       if(t.remoteId){q=await supabaseClient.from('sjb_transactions').update(row).eq('id',t.remoteId).select('id').single()}
       else{q=await supabaseClient.from('sjb_transactions').insert(row).select('id').single()}
@@ -114,7 +114,7 @@ async function loadCloud(){
   }
   if(setR.data)db.settings={name:setR.data.store_name,sub:setR.data.store_sub,phone:setR.data.phone||'',address:setR.data.address||'',hours:setR.data.hours||''};
   db.services=(svcR.data||[]).filter(s=>s.active).map(s=>({id:Number(s.id),cat:s.category,name:s.name,unit:s.unit,price:Number(s.price),variants:Array.isArray(s.variants)?s.variants:[]}));
-  db.transactions=(txR.data||[]).map((t,i)=>({id:Date.now()+i,remoteId:t.id,invoice:t.invoice,date:t.transaction_date,dueDate:t.due_date||'',customer:t.customer||'',phone:t.phone||'',payment:t.payment,channel:t.channel,status:t.status,discount:Number(t.discount)||0,total:Number(t.total)||0,items:t.items||[],archived:!!t.archived}));
+  db.transactions=(txR.data||[]).map((t,i)=>({id:Date.now()+i,remoteId:t.id,invoice:t.invoice,date:t.transaction_date,dueDate:t.due_date||'',customer:t.customer||'',phone:t.phone||'',payment:t.payment,dp:Number(t.dp)||0,channel:t.channel,status:t.status,discount:Number(t.discount)||0,total:Number(t.total)||0,items:t.items||[],archived:!!t.archived}));
   localSave();
 }
 async function startCloud(){
@@ -291,9 +291,10 @@ function kasir(){
   }else{cb.style.display='none';cb.innerHTML='';}
  }
  document.getElementById('cart').innerHTML=cart.map((x,i)=>'<div class="cart-item"><span><b>'+esc(x.name)+'</b><br><small>'+x.qty+' '+esc(x.unit)+' × '+rp(x.price)+'</small></span><span class="qty"><button onclick="chg('+i+',-1)">−</button> '+x.qty+' <button onclick="chg('+i+',1)">+</button><br><b>'+rp(x.qty*x.price)+'</b></span></div>').join('')||'<div class="empty">Keranjang kosong.</div>';
- document.getElementById('subTotal').textContent=rp(sub);document.getElementById('discount').textContent=rp(disc);document.getElementById('total').textContent=rp(total);
+ document.getElementById('subTotal').textContent=rp(sub);document.getElementById('discount').textContent=rp(disc);document.getElementById('total').textContent=rp(total);updateDpSummary();
 }
 window.selectCategory=function(c){cat=c;kasir()};
+window.updateDpSummary=function(){const total=Number(document.getElementById('total')?.textContent?.replace(/[^0-9]/g,'')||0);const method=document.getElementById('pay')?.value||'Lunas';const input=document.getElementById('dpAmount');if(!input)return;let paid=method==='Lunas'?total:(method==='Belum Bayar'?0:Number(input.value||0));if(method==='Lunas'){input.value=total;input.disabled=true;}else if(method==='Belum Bayar'){input.value=0;input.disabled=true;}else{input.disabled=false;}paid=Math.max(0,Math.min(total,paid));const d=document.getElementById('dpPreview'),b=document.getElementById('balancePreview');if(d)d.textContent=rp(paid);if(b)b.textContent=rp(Math.max(0,total-paid));};
 document.getElementById('findSvc').oninput=kasir;document.getElementById('disc').oninput=kasir;
 window.add=function(id){
  const s=db.services.find(x=>x.id===id); if(!s)return;
@@ -331,8 +332,8 @@ document.getElementById('saveTx').onclick=()=>{
  const id=Date.now(),invoice='SJB2-'+new Date().toISOString().slice(0,10).replaceAll('-','')+'-'+new Date().toTimeString().slice(0,8).replaceAll(':','')+'-'+Math.random().toString(36).slice(2,6).toUpperCase();
  const dueDate=document.getElementById('dueDate').value;
  if(!dueDate)return alert('Silakan tentukan tanggal dan jam selesai / pengambilan.');
- const t={id,invoice,date:new Date().toISOString(),dueDate,customer:document.getElementById('cust').value.trim(),phone:document.getElementById('phone').value.trim(),payment:document.getElementById('pay').value,channel:document.getElementById('channel').value,status:'Menunggu',discount:disc,total,items:cart.map(x=>({...x}))};
- db.transactions.push(t);save();alert('Transaksi '+invoice+' berhasil disimpan.');cart=[];document.getElementById('disc').value=0;document.getElementById('cust').value='';document.getElementById('phone').value='';document.getElementById('dueDate').value='';view('v-pesanan');
+ const payment=document.getElementById('pay').value;const enteredDp=Number(document.getElementById('dpAmount').value||0);const dp=payment==='Lunas'?total:(payment==='Belum Bayar'?0:enteredDp);if(dp<0||dp>total)return alert('Nominal DP tidak boleh kurang dari 0 atau melebihi total transaksi.');const t={id,invoice,date:new Date().toISOString(),dueDate,customer:document.getElementById('cust').value.trim(),phone:document.getElementById('phone').value.trim(),payment,dp,channel:document.getElementById('channel').value,status:'Menunggu',discount:disc,total,items:cart.map(x=>({...x}))};
+ db.transactions.push(t);save();alert('Transaksi '+invoice+' berhasil disimpan.');cart=[];document.getElementById('disc').value=0;document.getElementById('dpAmount').value=0;document.getElementById('cust').value='';document.getElementById('phone').value='';document.getElementById('dueDate').value='';view('v-pesanan');
 };
 
 function orders(){
@@ -436,7 +437,7 @@ function openReceipt(id){
  '<hr>'+t.items.map(i=>'<div class="item"><div><b>'+esc(i.name)+'</b></div><div class="line"><span>'+i.qty+' '+esc(i.unit)+' × '+rp(i.price)+'</span><span>'+rp(i.qty*i.price)+'</span></div></div>').join('')+
  '<hr><div class="line"><span>Subtotal</span><b>'+rp(subtotal)+'</b></div>'+
  '<div class="line"><span>Diskon</span><span>- '+rp(t.discount||0)+'</span></div>'+
- '<div class="line total"><span>TOTAL</span><span>'+rp(t.total)+'</span></div>'+
+ '<div class="line total"><span>TOTAL</span><span>'+rp(t.total)+'</span></div>'+'<div class="line"><span>Sudah Dibayar / DP</span><span>'+rp(t.dp||0)+'</span></div>'+'<div class="line"><b>SISA PEMBAYARAN</b><b>'+rp(Math.max(0,t.total-(t.dp||0)))+'</b></div>'+
  '<div class="line"><span>Pembayaran</span><span>'+esc(t.payment)+'</span></div>'+
  '<div class="line"><span>Status</span><span>'+esc(t.status)+'</span></div>'+
  '<hr><div class="center small">Terima kasih telah menggunakan layanan kami.</div>'+
